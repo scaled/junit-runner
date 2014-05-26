@@ -37,14 +37,22 @@ class Server (sender :Sender) extends Receiver.Listener {
                                    "success" -> result.wasSuccessful.toString))
       }
       override def testStarted (descrip :Description) {
-        sender.send("started", Map("class" -> descrip.getClassName,
-                                   "method" -> descrip.getMethodName))
+        sender.startMessage("started")
+        sender.sendString("class", descrip.getClassName)
+        sender.sendString("method", descrip.getMethodName)
+        sender.startText("output")
+        // flush the sender so that any stdout written by the test is accumulated into this
+        // multiline text block; this is a little hacky, but not heinously worse than capturing
+        // System.out and restoring it when the test is done
+        sender.textWriter.flush()
       }
       override def testFinished (descrip :Description) {
-        sender.send("finished", Map("class" -> descrip.getClassName,
-                                    "method" -> descrip.getMethodName))
+        sender.endText()
+        sender.endMessage()
       }
       override def testFailure (failure :Failure) {
+        sender.endText()
+        sender.endMessage()
         val trace = new StringWriter()
         failure.getException.printStackTrace(new PrintWriter(trace))
         val descrip = failure.getDescription
@@ -67,7 +75,7 @@ class Server (sender :Sender) extends Receiver.Listener {
       // if(testFilter.length() > 0) request = new SilentFilterRequest(request, new TestFilter(testFilter, ed));
       ju.run(request)
     } catch {
-      case e :Exception => println("failed to run test harness") ; e.printStackTrace(System.out)
+      case e :Exception => e.printStackTrace(System.err)
     }
   }
 }
