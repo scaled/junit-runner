@@ -1,0 +1,9 @@
+   name: junit-runner
+version: 1.0
+descrip: Integrates JUnit with Scaled Project Service's testing framework.
+ weburl: https://github.com/scaled/junit-runner
+ srcurl: git:https://github.com/scaled/junit-runner.git
+license: New BSD
+ srcdir: src/main/scala
+ bindir: target/classes
+ depend: mvn:junit:junit:4.11
