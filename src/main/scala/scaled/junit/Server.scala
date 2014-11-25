@@ -26,10 +26,27 @@ class Server (sender :Sender) extends Receiver.Listener {
       case text => fn(text)
     }
 
+    // captures output before, during and after test runs
+    var inBetween = false
+    def startBetween () = if (!inBetween) {
+      sender.startMessage("between")
+      sender.startText("output")
+      sender.textWriter.flush()
+      inBetween = true
+    }
+    def endBetween () = if (inBetween) {
+      inBetween = false
+      sender.endText()
+      sender.endMessage()
+    }
+
     val ju = new JUnitCore()
     ju.addListener(new RunListener() {
-      override def testRunStarted (descrip :Description) {} // nada
+      override def testRunStarted (descrip :Description) {
+        startBetween()
+      }
       override def testRunFinished (result :Result) {
+        endBetween()
         sender.send("results", Map("ran" -> result.getRunCount.toString,
                                    "ignored" -> result.getIgnoreCount.toString,
                                    "failed" -> result.getFailureCount.toString,
@@ -37,28 +54,25 @@ class Server (sender :Sender) extends Receiver.Listener {
                                    "success" -> result.wasSuccessful.toString))
       }
       override def testStarted (descrip :Description) {
-        sender.startMessage("started")
-        sender.sendString("class", descrip.getClassName)
-        sender.sendString("method", descrip.getMethodName)
-        sender.startText("output")
-        // flush the sender so that any stdout written by the test is accumulated into this
-        // multiline text block; this is a little hacky, but not heinously worse than capturing
-        // System.out and restoring it when the test is done
-        sender.textWriter.flush()
+        endBetween()
+        sender.send("started", Map("class" -> descrip.getClassName,
+                                   "method" -> descrip.getMethodName))
+        startBetween()
       }
       override def testFinished (descrip :Description) {
-        sender.endText()
-        sender.endMessage()
+        endBetween()
+        startBetween()
       }
       override def testFailure (failure :Failure) {
-        sender.endText()
-        sender.endMessage()
+        endBetween()
         val trace = new StringWriter()
         failure.getException.printStackTrace(new PrintWriter(trace))
         val descrip = failure.getDescription
         sender.send("failure", Map("class" -> descrip.getClassName,
-                                   "method" -> descrip.getMethodName,
+                                   // if we fail during a @Before/@After, this is null
+                                   "method" -> String.valueOf(descrip.getMethodName),
                                    "trace" -> trace.toString))
+        startBetween()
       }
       override def testAssumptionFailure (failure :Failure) {
         testFailure(failure) // TODO: need we differentiate?
@@ -74,6 +88,8 @@ class Server (sender :Sender) extends Receiver.Listener {
       // if(globPatterns.size() > 0) request = new SilentFilterRequest(request, new GlobFilter(settings, globPatterns));
       // if(testFilter.length() > 0) request = new SilentFilterRequest(request, new TestFilter(testFilter, ed));
       ju.run(request)
+      endBetween() // JUnit might not call testRunFinished in some cases because it's awesome!
+      sender.send("done", Map[String,String]())
     } catch {
       case e :Exception => e.printStackTrace(System.err)
     }
