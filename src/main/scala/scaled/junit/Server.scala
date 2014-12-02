@@ -7,8 +7,9 @@ package scaled.junit
 import java.io.{File, PrintWriter, StringWriter}
 import java.net.{URL, URLClassLoader}
 import java.util.{Map => JMap}
-import org.junit.runner.notification.{Failure, RunListener}
-import org.junit.runner.{Description, JUnitCore, Request, Result}
+import org.junit.runner.manipulation.{Filter, NoTestsRemainException}
+import org.junit.runner.notification.{Failure, RunListener, RunNotifier}
+import org.junit.runner.{Description, JUnitCore, Request, Result, Runner}
 import scaled.prococol.{Sender, Receiver}
 
 class Server (sender :Sender) extends Receiver.Listener {
@@ -85,6 +86,26 @@ class Server (sender :Sender) extends Receiver.Listener {
       val classes = get("classes", Array[String](), _.split("\t"))
       val loader = new URLClassLoader(classpath, getClass.getClassLoader)
       val request = Request.classes(classes.map(loader.loadClass) :_*)
+      val filter = get("filter", "", identity[String])
+      val frequest = if (filter == "") request else new Request() {
+        val filt = new Filter() {
+          override def describe = s"Selects tests named '$filter'"
+          override def shouldRun (d :Description) = d.getDisplayName match {
+            case dn if (dn.indexOf('(') == -1) => true // this is a suite name, let it run
+            case dn => (dn startsWith s"$filter(")
+          }
+        }
+        override def getRunner = {
+          val runner = request.getRunner
+          try { filt.apply(runner) ; runner }
+          catch {
+            case e :NoTestsRemainException => new Runner() {
+              override def getDescription = runner.getDescription
+              override def run (notifier :RunNotifier) {}
+            }
+          }
+        }
+      }
       // if(globPatterns.size() > 0) request = new SilentFilterRequest(request, new GlobFilter(settings, globPatterns));
       // if(testFilter.length() > 0) request = new SilentFilterRequest(request, new TestFilter(testFilter, ed));
       ju.run(request)
