@@ -108,7 +108,7 @@ class Server (sender :Sender) extends Receiver.Listener {
       }
       // if(globPatterns.size() > 0) request = new SilentFilterRequest(request, new GlobFilter(settings, globPatterns));
       // if(testFilter.length() > 0) request = new SilentFilterRequest(request, new TestFilter(testFilter, ed));
-      ju.run(request)
+      ju.run(frequest)
       endBetween() // JUnit might not call testRunFinished in some cases because it's awesome!
       sender.send("done", Map[String,String]())
     } catch {
