@@ -5,4 +5,4 @@ descrip: Integrates JUnit with Scaled Project Service's testing framework.
  weburl: https://github.com/scaled/junit-runner
 license: New BSD
  depend: git:https://github.com/scaled/prococol.git
- depend: mvn:junit:junit:4.11
+ depend: mvn:junit:junit:4.12
