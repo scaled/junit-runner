@@ -98,6 +98,7 @@ public class Main {
 
           Request request = Request.classes(classes);
           String filter = get(data, "filter", "", str -> str);
+          System.setProperty("junit.filter", filter);
           Request frequest = (filter.equals("")) ? request : new Request() {
             @Override public Runner getRunner () {
               Runner runner = request.getRunner();
