@@ -71,13 +71,11 @@ public class Main {
           }
           @Override public void testFailure (Failure failure) {
             endBetween();
-            StringWriter trace = new StringWriter();
-            failure.getException().printStackTrace(new PrintWriter(trace));
             Description descrip = failure.getDescription();
             sender.send("failure", map("class", descrip.getClassName(),
                                        // if we fail during a @Before/@After, this is null
                                        "method", descrip.getMethodName(),
-                                       "trace", trace.toString()));
+                                       "trace", traceToString(failure.getException())));
             startBetween();
           }
           @Override public void testAssumptionFailure (Failure failure) {
@@ -129,10 +127,19 @@ public class Main {
           endBetween(); // JUnit might not call testRunFinished in some cases because it's awesome!
           sender.send("done", map());
         } catch (Exception e) {
-          e.printStackTrace(System.err);
+          sender.send("failure", map("class", "<internal>",
+                                     "method", "<internal>",
+                                     "trace", traceToString(e)));
+          sender.send("done", map());
         }
       }
     }).run();
+  }
+
+  private static String traceToString (Throwable t) {
+    StringWriter trace = new StringWriter();
+    t.printStackTrace(new PrintWriter(trace));
+    return t.toString();
   }
 
   private static <T> T get (Map<String,String> data, String key, T defval, Function<String,T> fn) {
